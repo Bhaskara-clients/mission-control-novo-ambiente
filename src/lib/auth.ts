@@ -385,7 +385,7 @@ export function deleteUser(id: number): boolean {
  * If the user does not exist and MC_PROXY_AUTH_DEFAULT_ROLE is set, auto-provisions them.
  * Auto-provisioned users receive a random unusable password — they cannot log in locally.
  */
-function resolveOrProvisionProxyUser(username: string): User | null {
+function resolveOrProvisionProxyUser(username: string, assertedRole?: User['role']): User | null {
   try {
     const db = getDatabase()
     const { workspaceId } = getDefaultWorkspaceContext()
@@ -406,7 +406,7 @@ function resolveOrProvisionProxyUser(username: string): User | null {
         id: row.id,
         username: row.username,
         display_name: row.display_name,
-        role: row.role,
+        role: assertedRole || row.role,
         workspace_id: row.workspace_id || workspaceId,
         tenant_id: resolveTenantForWorkspace(row.workspace_id || workspaceId),
         provider: row.provider || 'local',
@@ -420,7 +420,7 @@ function resolveOrProvisionProxyUser(username: string): User | null {
     }
 
     // Auto-provision if MC_PROXY_AUTH_DEFAULT_ROLE is configured
-    const defaultRole = (process.env.MC_PROXY_AUTH_DEFAULT_ROLE || '').trim()
+    const defaultRole = assertedRole || (process.env.MC_PROXY_AUTH_DEFAULT_ROLE || '').trim()
     if (!defaultRole || !(['viewer', 'operator', 'admin'] as const).includes(defaultRole as User['role'])) {
       return null
     }
@@ -451,7 +451,12 @@ export function getUserFromRequest(request: Request): User | null {
       if (clientIp && PROXY_AUTH_TRUSTED_IPS.has(clientIp)) {
         const proxyUsername = (request.headers.get(proxyAuthHeader) || '').trim()
         if (proxyUsername) {
-          const user = resolveOrProvisionProxyUser(proxyUsername)
+          const assertedRoleValue = (request.headers.get(process.env.MC_PROXY_AUTH_ROLE_HEADER || 'X-Auth-Mc-Role') || '').trim()
+          const assertedRole = (['viewer', 'operator', 'admin'] as const).includes(assertedRoleValue as User['role'])
+            ? assertedRoleValue as User['role']
+            : undefined
+          if (process.env.NODE_ENV === 'production' && process.env.MC_PROXY_AUTH_ROLE_HEADER && !assertedRole) return null
+          const user = resolveOrProvisionProxyUser(proxyUsername, assertedRole)
           if (user) return { ...user, agent_name: agentName }
         }
       }

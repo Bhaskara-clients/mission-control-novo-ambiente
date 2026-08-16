@@ -180,6 +180,20 @@ export function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  if (envFlag('MC_NOVO_AMBIENTE_LOCKDOWN') && envFlag('MC_DISABLE_LOCAL_LOGIN')) {
+    if (pathname === '/login' || pathname === '/setup' || pathname === '/api/setup' || pathname === '/api/auth/login') {
+      return addSecurityHeaders(new NextResponse('Not Found', { status: 404 }), request)
+    }
+  }
+
+  if (envFlag('MC_NOVO_AMBIENTE_LOCKDOWN') && pathname.startsWith('/api/')) {
+    const allowed = pathname.startsWith('/api/extensions/novo-ambiente/')
+      || pathname.startsWith('/api/auth/')
+      || pathname === '/api/health'
+      || (pathname === '/api/status' && request.nextUrl.searchParams.get('action') === 'health')
+    if (!allowed) return addSecurityHeaders(NextResponse.json({ error: 'Disabled by Novo Ambiente policy' }, { status: 403 }), request)
+  }
+
   // CSRF Origin validation for mutating requests
   const method = request.method.toUpperCase()
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {

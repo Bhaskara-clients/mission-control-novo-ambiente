@@ -60,6 +60,7 @@ import { clearOnboardingDismissedThisSession, clearOnboardingReplayFromStart, ge
 import { Button } from '@/components/ui/button'
 import { useMissionControl, type CurrentUser } from '@/store'
 import { apiFetch, ApiError } from '@/lib/api-client'
+import { NovoAmbienteRoot } from '@/extensions/novo-ambiente'
 
 interface GatewaySummary {
   id: number
@@ -94,6 +95,11 @@ function renderPluginPanel(panelId: string) {
 }
 
 export default function Home() {
+  if (process.env.NEXT_PUBLIC_NOVO_AMBIENTE_MODE === '1') return <NovoAmbienteRoot />
+  return <LegacyHome />
+}
+
+function LegacyHome() {
   const router = useRouter()
   const { connect } = useWebSocket()
   const tb = useTranslations('boot')
