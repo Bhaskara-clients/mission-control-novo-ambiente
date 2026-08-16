@@ -9,6 +9,24 @@ import { parseMcSessionCookieHeader } from './session-cookie'
 const PROXY_AUTH_TRUSTED_IPS = new Set(
   (process.env.MC_PROXY_AUTH_TRUSTED_IPS || '').split(',').map(s => s.trim()).filter(Boolean)
 )
+const NOVO_AMBIENTE_PROXY_MARKER = 'entra-auth-gateway'
+
+function envFlag(name: string): boolean {
+  const value = String(process.env[name] || '').trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
+export function hasTrustedNovoAmbienteAssertion(request: Request): boolean {
+  if (!envFlag('MC_NOVO_AMBIENTE_LOCKDOWN')) return false
+  const markerHeader = (process.env.MC_PROXY_AUTH_TRUST_MARKER_HEADER || 'X-Auth-Proxy-Verified').trim()
+  const actorHeader = (process.env.MC_PROXY_AUTH_HEADER || '').trim()
+  const roleHeader = (process.env.MC_PROXY_AUTH_ROLE_HEADER || 'X-Auth-Mc-Role').trim()
+  const actor = actorHeader ? (request.headers.get(actorHeader) || '').trim() : ''
+  const role = (request.headers.get(roleHeader) || '').trim()
+  return request.headers.get(markerHeader) === NOVO_AMBIENTE_PROXY_MARKER
+    && actor.length > 0
+    && (role === 'viewer' || role === 'operator' || role === 'admin')
+}
 
 // Log once at startup if proxy auth is misconfigured.
 // Deferred to avoid DB access during module initialization.
@@ -444,24 +462,30 @@ export function getUserFromRequest(request: Request): User | null {
   // and a critical security event is logged on the first request.
   const proxyAuthHeader = (process.env.MC_PROXY_AUTH_HEADER || '').trim()
   if (proxyAuthHeader) {
-    if (PROXY_AUTH_TRUSTED_IPS.size === 0) {
+    const novoAmbienteAssertion = hasTrustedNovoAmbienteAssertion(request)
+    if (envFlag('MC_NOVO_AMBIENTE_LOCKDOWN') && !novoAmbienteAssertion) {
+      return null
+    }
+    if (!novoAmbienteAssertion && PROXY_AUTH_TRUSTED_IPS.size === 0) {
       warnProxyAuthMisconfigOnce()
     } else {
       const clientIp = extractClientIpFromTrusted(request, PROXY_AUTH_TRUSTED_IPS, '')
-      if (clientIp && PROXY_AUTH_TRUSTED_IPS.has(clientIp)) {
+      if (novoAmbienteAssertion || (clientIp && PROXY_AUTH_TRUSTED_IPS.has(clientIp))) {
         const proxyUsername = (request.headers.get(proxyAuthHeader) || '').trim()
         if (proxyUsername) {
           const assertedRoleValue = (request.headers.get(process.env.MC_PROXY_AUTH_ROLE_HEADER || 'X-Auth-Mc-Role') || '').trim()
           const assertedRole = (['viewer', 'operator', 'admin'] as const).includes(assertedRoleValue as User['role'])
             ? assertedRoleValue as User['role']
             : undefined
-          if (process.env.NODE_ENV === 'production' && process.env.MC_PROXY_AUTH_ROLE_HEADER && !assertedRole) return null
+          if ((envFlag('MC_NOVO_AMBIENTE_LOCKDOWN') || process.env.NODE_ENV === 'production') && !assertedRole) return null
           const user = resolveOrProvisionProxyUser(proxyUsername, assertedRole)
           if (user) return { ...user, agent_name: agentName }
         }
       }
     }
   }
+
+  if (envFlag('MC_NOVO_AMBIENTE_LOCKDOWN')) return null
 
   // Check session cookie
   const cookieHeader = request.headers.get('cookie') || ''

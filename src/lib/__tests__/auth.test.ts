@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { safeCompare, requireRole } from '@/lib/auth'
+import { hasTrustedNovoAmbienteAssertion, safeCompare, requireRole } from '@/lib/auth'
 
 // Mock dependencies that auth.ts imports
 vi.mock('@/lib/db', () => ({
@@ -41,6 +41,58 @@ describe('safeCompare', () => {
   it('returns false for non-string inputs', () => {
     expect(safeCompare(null as any, 'a')).toBe(false)
     expect(safeCompare('a', undefined as any)).toBe(false)
+  })
+})
+
+describe('Novo Ambiente trusted proxy assertion', () => {
+  const originalEnv = process.env
+
+  beforeEach(() => {
+    process.env = {
+      ...originalEnv,
+      MC_NOVO_AMBIENTE_LOCKDOWN: '1',
+      MC_PROXY_AUTH_HEADER: 'X-Auth-Actor',
+      MC_PROXY_AUTH_ROLE_HEADER: 'X-Auth-Mc-Role',
+    }
+  })
+
+  afterEach(() => {
+    process.env = originalEnv
+  })
+
+  it('requires the gateway marker in addition to actor and role', () => {
+    const spoofed = new Request('http://localhost', {
+      headers: {
+        'X-Auth-Actor': 'attacker',
+        'X-Auth-Mc-Role': 'admin',
+      },
+    })
+    const asserted = new Request('http://localhost', {
+      headers: {
+        'X-Auth-Actor': 'tenant:object',
+        'X-Auth-Mc-Role': 'operator',
+        'X-Auth-Proxy-Verified': 'entra-auth-gateway',
+      },
+    })
+
+    expect(hasTrustedNovoAmbienteAssertion(spoofed)).toBe(false)
+    expect(hasTrustedNovoAmbienteAssertion(asserted)).toBe(true)
+  })
+
+  it('rejects missing actors and unknown roles', () => {
+    expect(hasTrustedNovoAmbienteAssertion(new Request('http://localhost', {
+      headers: {
+        'X-Auth-Mc-Role': 'admin',
+        'X-Auth-Proxy-Verified': 'entra-auth-gateway',
+      },
+    }))).toBe(false)
+    expect(hasTrustedNovoAmbienteAssertion(new Request('http://localhost', {
+      headers: {
+        'X-Auth-Actor': 'tenant:object',
+        'X-Auth-Mc-Role': 'owner',
+        'X-Auth-Proxy-Verified': 'entra-auth-gateway',
+      },
+    }))).toBe(false)
   })
 })
 

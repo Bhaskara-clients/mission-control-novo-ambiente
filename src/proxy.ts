@@ -21,6 +21,17 @@ function envFlag(name: string): boolean {
   return v === '1' || v === 'true' || v === 'yes' || v === 'on'
 }
 
+function hasTrustedNovoAmbienteAssertion(request: NextRequest): boolean {
+  const actorHeader = (process.env.MC_PROXY_AUTH_HEADER || '').trim()
+  const roleHeader = (process.env.MC_PROXY_AUTH_ROLE_HEADER || 'X-Auth-Mc-Role').trim()
+  const markerHeader = (process.env.MC_PROXY_AUTH_TRUST_MARKER_HEADER || 'X-Auth-Proxy-Verified').trim()
+  const actor = actorHeader ? (request.headers.get(actorHeader) || '').trim() : ''
+  const role = (request.headers.get(roleHeader) || '').trim()
+  return request.headers.get(markerHeader) === 'entra-auth-gateway'
+    && actor.length > 0
+    && (role === 'viewer' || role === 'operator' || role === 'admin')
+}
+
 function normalizeHostname(raw: string): string {
   return raw.trim().replace(/^\[|\]$/g, '').split(':')[0].replace(/\.$/, '').toLowerCase()
 }
@@ -179,23 +190,30 @@ export function proxy(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl
+  const novoAmbienteLockdown = envFlag('MC_NOVO_AMBIENTE_LOCKDOWN')
+  const method = request.method.toUpperCase()
 
-  if (envFlag('MC_NOVO_AMBIENTE_LOCKDOWN') && envFlag('MC_DISABLE_LOCAL_LOGIN')) {
-    if (pathname === '/login' || pathname === '/setup' || pathname === '/api/setup' || pathname === '/api/auth/login') {
+  if (novoAmbienteLockdown) {
+    const allowedAuthRead = method === 'GET' && pathname === '/api/auth/me'
+    if (
+      pathname === '/login'
+      || pathname === '/setup'
+      || pathname === '/api/setup'
+      || (pathname.startsWith('/api/auth/') && !allowedAuthRead)
+    ) {
       return addSecurityHeaders(new NextResponse('Not Found', { status: 404 }), request)
     }
   }
 
-  if (envFlag('MC_NOVO_AMBIENTE_LOCKDOWN') && pathname.startsWith('/api/')) {
+  if (novoAmbienteLockdown && pathname.startsWith('/api/')) {
     const allowed = pathname.startsWith('/api/extensions/novo-ambiente/')
-      || pathname.startsWith('/api/auth/')
+      || (method === 'GET' && pathname === '/api/auth/me')
       || pathname === '/api/health'
       || (pathname === '/api/status' && request.nextUrl.searchParams.get('action') === 'health')
     if (!allowed) return addSecurityHeaders(NextResponse.json({ error: 'Disabled by Novo Ambiente policy' }, { status: 403 }), request)
   }
 
   // CSRF Origin validation for mutating requests
-  const method = request.method.toUpperCase()
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
     const origin = request.headers.get('origin')
     if (origin) {
@@ -212,12 +230,21 @@ export function proxy(request: NextRequest) {
   // Exact-match only (no prefix/wildcard) so this exempts just the two health routes.
   const isPublicHealthRoute = pathname === '/api/health' || pathname === '/health'
   const isAdapterPublisherRoute = method === 'POST' && pathname === '/api/extensions/novo-ambiente/events'
-  if (pathname === '/login' || pathname === '/setup' || pathname.startsWith('/api/auth/') || pathname === '/api/setup' || pathname === '/api/docs' || pathname === '/docs' || isPublicHealthProbe || isPublicHealthRoute) {
+  const inheritedPublicRoute = pathname === '/login' || pathname === '/setup' || pathname.startsWith('/api/auth/') || pathname === '/api/setup' || pathname === '/api/docs' || pathname === '/docs'
+  if ((!novoAmbienteLockdown && inheritedPublicRoute) || isPublicHealthProbe || isPublicHealthRoute) {
     const { response, nonce } = nextResponseWithNonce(request)
     return addSecurityHeaders(response, request, nonce)
   }
 
   if (isAdapterPublisherRoute) {
+    const { response, nonce } = nextResponseWithNonce(request)
+    return addSecurityHeaders(response, request, nonce)
+  }
+
+  if (novoAmbienteLockdown) {
+    if (!hasTrustedNovoAmbienteAssertion(request)) {
+      return addSecurityHeaders(NextResponse.json({ error: 'Authentication required' }, { status: 401 }), request)
+    }
     const { response, nonce } = nextResponseWithNonce(request)
     return addSecurityHeaders(response, request, nonce)
   }
