@@ -18,8 +18,7 @@ RUN if [ -f pnpm-lock.yaml ]; then \
       pnpm install --no-frozen-lockfile; \
     fi
 
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
+FROM deps AS build
 COPY . .
 
 # ─── PR-CANDIDATE: NEXT_PUBLIC_* baked into client bundle ──────────────────
