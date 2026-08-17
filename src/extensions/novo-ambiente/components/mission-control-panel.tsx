@@ -29,24 +29,22 @@ function ErrorState({ message, retry }: { message: string; retry: () => void }) 
 }
 
 export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
-  const [environment, setEnvironment] = useState<Environment>('staging')
-  const [data, setData] = useState<unknown>(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [environment, setEnvironment] = useState<Environment>('production')
+  const request = endpoint(view, environment)
+  const [result, setResult] = useState<{ request: string; data?: unknown; error?: string } | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [inventory, setInventory] = useState<InventorySnapshot[]>([])
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setResult({ request })
     try {
-      setData(await apiFetch(endpoint(view, environment)))
+      const data = await apiFetch(request)
+      setResult((current) => current?.request === request ? { request, data } : current)
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Falha de rede')
-    } finally {
-      setLoading(false)
+      const error = cause instanceof ApiError ? cause.message : 'Falha de rede'
+      setResult((current) => current?.request === request ? { request, error } : current)
     }
-  }, [environment, view])
+  }, [request])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
@@ -55,6 +53,10 @@ export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
       .then(setInventory)
       .catch(() => setInventory([]))
   }, [environment, selectedAgent])
+
+  const ready = result?.request === request && Object.hasOwn(result, 'data')
+  const data = ready ? result.data : null
+  const error = result?.request === request ? result.error : undefined
 
   return (
     <section className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 p-5 lg:p-8">
@@ -72,11 +74,11 @@ export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
           </select>
         </label>
       </header>
-      {loading ? <div className="h-48 animate-pulse rounded-xl border border-border bg-card" /> : error ? <ErrorState message={error} retry={() => void load()} /> : null}
-      {!loading && !error && view === 'fleet' && <FleetView data={data as Overview} onSelect={setSelectedAgent} />}
-      {!loading && !error && view === 'connections' && <ConnectionsView data={data as Connection[]} />}
-      {!loading && !error && view === 'usage' && <UsageView data={data as UsageProjection} />}
-      {!loading && !error && view === 'access' && <AccessView data={data as AccessProjection} />}
+      {!ready && !error ? <div className="h-48 animate-pulse rounded-xl border border-border bg-card" /> : error ? <ErrorState message={error} retry={() => void load()} /> : null}
+      {ready && view === 'fleet' && <FleetView data={data as Overview} onSelect={setSelectedAgent} />}
+      {ready && view === 'connections' && <ConnectionsView data={data as Connection[]} />}
+      {ready && view === 'usage' && <UsageView data={data as UsageProjection} />}
+      {ready && view === 'access' && <AccessView data={data as AccessProjection} />}
       {selectedAgent && <AgentDrawer agentKey={selectedAgent} inventory={inventory} close={() => setSelectedAgent(null)} />}
     </section>
   )
