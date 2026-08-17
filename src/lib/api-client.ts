@@ -1,3 +1,5 @@
+import { applicationPath } from './base-path'
+
 /**
  * API client with global 401 / 403 / network handling.
  *
@@ -52,8 +54,8 @@ function redirectToLogin(): void {
   if (typeof window === 'undefined') return
   const from = window.location.pathname + window.location.search
   // Avoid redirect loops if user is already on /login
-  if (window.location.pathname === '/login') return
-  window.location.href = `/login?from=${encodeURIComponent(from)}`
+  if (window.location.pathname === applicationPath('/login')) return
+  window.location.href = `${applicationPath('/login')}?from=${encodeURIComponent(from)}`
 }
 
 function emitAuthExpired(detail: { path: string; status: number }): void {
@@ -80,7 +82,8 @@ export async function apiFetch<T = unknown>(
 
   let response: Response
   try {
-    response = await fetch(path, {
+    const requestPath = path.startsWith('/api/') ? applicationPath(path) : path
+    response = await fetch(requestPath, {
       credentials: 'include',
       headers: {
         Accept: 'application/json',

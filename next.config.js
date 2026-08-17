@@ -1,8 +1,11 @@
 const withNextIntl = require('next-intl/plugin')('./src/i18n/request.ts')
 
+const basePath = process.env.NEXT_PUBLIC_MC_BASE_PATH || ''
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  basePath,
   outputFileTracingRoot: __dirname,
   outputFileTracingIncludes: {
     // These files are read from process.cwd() at runtime and therefore cannot

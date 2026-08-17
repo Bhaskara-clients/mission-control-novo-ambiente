@@ -37,6 +37,7 @@ ARG NEXT_PUBLIC_GATEWAY_OPTIONAL=
 ARG NEXT_PUBLIC_COORDINATOR_AGENT=
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ARG NEXT_PUBLIC_NOVO_AMBIENTE_MODE=1
+ARG NEXT_PUBLIC_MC_BASE_PATH=/mission-control
 ENV NEXT_PUBLIC_GATEWAY_URL=${NEXT_PUBLIC_GATEWAY_URL}
 ENV NEXT_PUBLIC_GATEWAY_HOST=${NEXT_PUBLIC_GATEWAY_HOST}
 ENV NEXT_PUBLIC_GATEWAY_PORT=${NEXT_PUBLIC_GATEWAY_PORT}
@@ -47,6 +48,7 @@ ENV NEXT_PUBLIC_GATEWAY_OPTIONAL=${NEXT_PUBLIC_GATEWAY_OPTIONAL}
 ENV NEXT_PUBLIC_COORDINATOR_AGENT=${NEXT_PUBLIC_COORDINATOR_AGENT}
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
 ENV NEXT_PUBLIC_NOVO_AMBIENTE_MODE=${NEXT_PUBLIC_NOVO_AMBIENTE_MODE}
+ENV NEXT_PUBLIC_MC_BASE_PATH=${NEXT_PUBLIC_MC_BASE_PATH}
 # ────────────────────────────────────────────────────────────────────────────
 
 RUN pnpm build
@@ -74,7 +76,7 @@ COPY --from=build /app/src/lib/schema.sql ./src/lib/schema.sql
 COPY --from=deps /app/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty ./node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p .data && chown nextjs:nodejs .data
-RUN echo 'const http=require("http");const r=http.get("http://localhost:"+(process.env.PORT||3000)+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
+RUN echo 'const http=require("http");const p=process.env.MC_BASE_PATH||"/mission-control";const r=http.get("http://localhost:"+(process.env.PORT||3000)+p+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY scripts/load-env.sh /app/scripts/load-env.sh
 RUN chmod 755 /app/docker-entrypoint.sh && \
@@ -84,6 +86,7 @@ USER nextjs
 ENV PORT=3000
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
+ENV MC_BASE_PATH=/mission-control
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
