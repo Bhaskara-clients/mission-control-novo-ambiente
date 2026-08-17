@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import type { AccessProjection, Connection, Environment, Incident, InventorySnapshot, Overview, UsageProjection } from '../contracts'
+import { hasLiveEvidence, healthDetail, layerLabel } from '../health-labels'
 import { StatusBadge } from './status-badge'
 
 export type NovoAmbienteView = 'fleet' | 'connections' | 'usage' | 'access'
@@ -83,17 +84,19 @@ export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
 
 function FleetView({ data, onSelect }: { data: Overview; onSelect: (agentKey: string) => void }) {
   const [incidents, setIncidents] = useState(data.activeIncidents)
+  const observedAgents = data.agents.filter((agent) => hasLiveEvidence(agent.layers)).length
   async function acknowledge(incident: Incident) {
     const updated = await apiFetch<Incident>(`/api/extensions/novo-ambiente/incidents/${incident.id}/acknowledge`, { method: 'POST' })
     setIncidents((current) => current.map((item) => item.id === updated.id ? updated : item))
   }
   return (
     <>
+      {data.agents.length > 0 && observedAgents === 0 && <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-5"><h2 className="font-medium text-amber-300">Monitoramento ainda não ativado neste ambiente</h2><p className="mt-1 text-sm text-muted-foreground">Os agentes foram cadastrados, mas o Mission Control ainda não recebeu nenhum sinal operacional.</p></div>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.agents.map((agent) => (
           <button key={agent.agentKey} onClick={() => onSelect(agent.agentKey)} className="rounded-xl border border-border bg-card p-5 text-left transition-colors hover:border-cyan-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
-            <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{agent.agentKey}</h2><p className="text-xs text-muted-foreground">Atualizado {date(agent.computedAt)}</p></div><StatusBadge status={agent.overallStatus} /></div>
-            <div className="mt-4 grid grid-cols-2 gap-2">{agent.layers.map((layer) => <div key={layer.layer} className="rounded-lg border border-border/70 bg-background/50 p-2"><p className="text-xs uppercase tracking-wide text-muted-foreground">{layer.layer}</p><p className="mt-1 text-sm">{layer.status === 'healthy' ? 'Saudável' : layer.errorCode || 'Sem evidência'}</p></div>)}</div>
+            <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{agent.displayName || agent.agentKey}</h2><p className="text-xs text-muted-foreground">{agent.ownerTeam || agent.agentKey} · atualizado {date(agent.computedAt)}</p></div><StatusBadge status={agent.overallStatus} /></div>
+            <div className="mt-4 grid grid-cols-2 gap-2">{agent.layers.map((layer) => <div key={layer.layer} className="rounded-lg border border-border/70 bg-background/50 p-2"><p className="text-xs uppercase tracking-wide text-muted-foreground">{layerLabel(layer.layer)}</p><p className="mt-1 text-sm">{healthDetail(layer.status, layer.errorCode)}</p></div>)}</div>
             <p className="mt-4 text-xs text-muted-foreground">{agent.activeIncidentCount} incidente(s) ativo(s)</p>
           </button>
         ))}
