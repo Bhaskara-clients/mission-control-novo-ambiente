@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api-client'
 import { applicationPath } from '@/lib/base-path'
 import type { CurrentUser } from '@/store'
 import { systemsHubUrl, visibleNavigation, visibleSystems, type DashboardCatalogItem, type DashboardCatalogSection } from '../catalog-navigation'
+import { mountHermesOverlay } from '../hermes-overlay'
 import { MissionControlPanel, type NovoAmbienteView } from './mission-control-panel'
 
 const views: Array<{ id: NovoAmbienteView; label: string }> = [
@@ -40,6 +41,7 @@ export function NovoAmbienteRoot() {
         setNavigation([])
       })
   }, [])
+  useEffect(() => mountHermesOverlay(document), [])
 
   const allowedViews = user?.role === 'admin' ? views : views.filter((item) => item.id !== 'access')
   const requested = pathname === '/' ? 'fleet' : pathname.slice(1)
