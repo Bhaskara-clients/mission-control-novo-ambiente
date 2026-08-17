@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { apiFetch } from '@/lib/api-client'
@@ -50,5 +50,29 @@ describe('MissionControlPanel', () => {
     resolveAccess(access)
     expect(await screen.findByText('Dashboards e perfis')).toBeTruthy()
     expect(screen.getByRole('combobox')).toHaveValue('production')
+  })
+
+  it('loads dashboard profiles only after an admin opens its detail', async () => {
+    vi.mocked(apiFetch).mockImplementation((url) => {
+      if (String(url).includes('/access/wms?environment=production')) {
+        return Promise.resolve({
+          schemaVersion: 1,
+          environment: 'production',
+          dashboardKey: 'wms',
+          displayName: 'WMS',
+          profiles: ['admin@novoambiente.com.br', 'user@novoambiente.com.br'],
+          generatedAt: '2026-08-17T17:30:00.000Z',
+        })
+      }
+      if (String(url).includes('/access?environment=production')) return Promise.resolve(access)
+      return Promise.resolve([])
+    })
+
+    render(<MissionControlPanel view="access" />)
+    fireEvent.click(await screen.findByRole('button', { name: /WMS/ }))
+
+    expect(await screen.findByText('admin@novoambiente.com.br')).toBeTruthy()
+    expect(screen.getByText('user@novoambiente.com.br')).toBeTruthy()
+    expect(apiFetch).toHaveBeenCalledWith('/api/extensions/novo-ambiente/access/wms?environment=production')
   })
 })

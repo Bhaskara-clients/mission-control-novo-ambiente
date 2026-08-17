@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
-import type { AccessProjection, Connection, Environment, Incident, InventorySnapshot, Overview, UsageProjection } from '../contracts'
+import type { AccessProjection, Connection, DashboardAccessDetail, Environment, Incident, InventorySnapshot, Overview, UsageProjection } from '../contracts'
 import { hasLiveEvidence, healthDetail, layerLabel } from '../health-labels'
 import { StatusBadge } from './status-badge'
 
@@ -78,7 +78,7 @@ export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
       {ready && view === 'fleet' && <FleetView data={data as Overview} onSelect={setSelectedAgent} />}
       {ready && view === 'connections' && <ConnectionsView data={data as Connection[]} />}
       {ready && view === 'usage' && <UsageView data={data as UsageProjection} />}
-      {ready && view === 'access' && <AccessView data={data as AccessProjection} />}
+      {ready && view === 'access' && <AccessView data={data as AccessProjection} environment={environment} />}
       {selectedAgent && <AgentDrawer agentKey={selectedAgent} inventory={inventory} close={() => setSelectedAgent(null)} />}
     </section>
   )
@@ -121,8 +121,26 @@ function UsageView({ data }: { data: UsageProjection }) {
   return <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Tokens" value={data.totals.totalTokens.toLocaleString('pt-BR')} /><Metric label="Entrada" value={data.totals.inputTokens.toLocaleString('pt-BR')} /><Metric label="Saída" value={data.totals.outputTokens.toLocaleString('pt-BR')} /><Metric label="Custo conhecido" value={data.totals.costUsd === null ? 'Desconhecido' : `US$ ${data.totals.costUsd.toFixed(2)}`} /></div><div className="rounded-xl border border-border bg-card p-5"><h2 className="font-semibold">Por agente e modelo</h2>{data.breakdown.map((item) => <div key={`${item.agentKey}:${item.provider}:${item.model}`} className="mt-3 grid grid-cols-4 gap-3 border-t border-border pt-3 text-sm"><span>{item.agentKey}</span><span>{item.provider}</span><span className="truncate" title={item.model}>{item.model}</span><span>{item.totalTokens.toLocaleString('pt-BR')}</span></div>)}</div></>
 }
 
-function AccessView({ data }: { data: AccessProjection }) {
-  return <div className="grid gap-5 xl:grid-cols-2"><div className="rounded-xl border border-border bg-card"><h2 className="border-b border-border p-4 font-semibold">Dashboards e perfis</h2>{data.dashboards.map((item) => <div key={item.dashboardKey} className="flex justify-between border-b border-border/70 p-4 last:border-0"><div><p className="font-medium">{item.displayName}</p><p className="text-xs text-muted-foreground">{item.dashboardKey}</p></div><span className="text-sm text-muted-foreground">{item.grantCount} acessos</span></div>)}</div><div className="rounded-xl border border-border bg-card"><h2 className="border-b border-border p-4 font-semibold">Allowlist por agente</h2>{data.allowlist.map((item) => <div key={item.agentKey} className="border-b border-border/70 p-4 last:border-0"><div className="flex justify-between"><p className="font-medium">{item.agentKey}</p><span>{item.activeCount} ativos</span></div><p className="mt-1 text-xs text-muted-foreground">{item.byKind.map((kind) => `${kind.kind}: ${kind.count}`).join(' · ')}</p></div>)}</div></div>
+function AccessView({ data, environment }: { data: AccessProjection; environment: Environment }) {
+  const [selection, setSelection] = useState<{ dashboardKey: string; detail?: DashboardAccessDetail; error?: string } | null>(null)
+  useEffect(() => setSelection(null), [environment])
+
+  async function toggleDashboard(dashboardKey: string) {
+    if (selection?.dashboardKey === dashboardKey) {
+      setSelection(null)
+      return
+    }
+    setSelection({ dashboardKey })
+    try {
+      const detail = await apiFetch<DashboardAccessDetail>(`/api/extensions/novo-ambiente/access/${encodeURIComponent(dashboardKey)}?environment=${environment}`)
+      setSelection((current) => current?.dashboardKey === dashboardKey ? { dashboardKey, detail } : current)
+    } catch (cause) {
+      const error = cause instanceof ApiError ? cause.message : 'Falha de rede'
+      setSelection((current) => current?.dashboardKey === dashboardKey ? { dashboardKey, error } : current)
+    }
+  }
+
+  return <div className="grid gap-5 xl:grid-cols-2"><div className="rounded-xl border border-border bg-card"><h2 className="border-b border-border p-4 font-semibold">Dashboards e perfis</h2>{data.dashboards.map((item) => <div key={item.dashboardKey} className="border-b border-border/70 last:border-0"><button type="button" aria-expanded={selection?.dashboardKey === item.dashboardKey} aria-label={`Ver perfis de ${item.displayName}`} onClick={() => void toggleDashboard(item.dashboardKey)} className="flex w-full items-center justify-between p-4 text-left hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400"><div><p className="font-medium">{item.displayName}</p><p className="text-xs text-muted-foreground">{item.dashboardKey}</p></div><span className="text-sm text-muted-foreground">{item.grantCount} acessos</span></button>{selection?.dashboardKey === item.dashboardKey && <div className="border-t border-border/70 bg-background/35 px-4 py-3">{selection.error ? <p className="text-sm text-red-300">{selection.error}</p> : selection.detail ? <div className="flex flex-wrap gap-2">{selection.detail.profiles.map((profile) => <span key={profile} className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground">{profile}</span>)}{selection.detail.profiles.length === 0 && <p className="text-sm text-muted-foreground">Nenhum perfil liberado.</p>}</div> : <p className="text-sm text-muted-foreground">Carregando perfis…</p>}</div>}</div>)}</div><div className="rounded-xl border border-border bg-card"><h2 className="border-b border-border p-4 font-semibold">Allowlist por agente</h2>{data.allowlist.map((item) => <div key={item.agentKey} className="border-b border-border/70 p-4 last:border-0"><div className="flex justify-between"><p className="font-medium">{item.agentKey}</p><span>{item.activeCount} ativos</span></div><p className="mt-1 text-xs text-muted-foreground">{item.byKind.map((kind) => `${kind.kind}: ${kind.count}`).join(' · ')}</p></div>)}{data.allowlist.length === 0 && <p className="p-5 text-sm text-muted-foreground">Nenhuma entrada ativa na fonte atual.</p>}</div></div>
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-border bg-card p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></div> }
