@@ -1,3 +1,5 @@
+ARG NEXT_PUBLIC_MC_BASE_PATH=/mission-control
+
 FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS base
 # Pin pnpm to v10 to match CI and package.json#packageManager. pnpm 11 turns
 # ERR_PNPM_IGNORED_BUILDS into a hard error, breaking fresh Docker builds.
@@ -19,6 +21,7 @@ RUN if [ -f pnpm-lock.yaml ]; then \
     fi
 
 FROM deps AS build
+ARG NEXT_PUBLIC_MC_BASE_PATH
 COPY . .
 
 # ─── PR-CANDIDATE: NEXT_PUBLIC_* baked into client bundle ──────────────────
@@ -37,7 +40,6 @@ ARG NEXT_PUBLIC_GATEWAY_OPTIONAL=
 ARG NEXT_PUBLIC_COORDINATOR_AGENT=
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 ARG NEXT_PUBLIC_NOVO_AMBIENTE_MODE=1
-ARG NEXT_PUBLIC_MC_BASE_PATH=/mission-control
 ENV NEXT_PUBLIC_GATEWAY_URL=${NEXT_PUBLIC_GATEWAY_URL}
 ENV NEXT_PUBLIC_GATEWAY_HOST=${NEXT_PUBLIC_GATEWAY_HOST}
 ENV NEXT_PUBLIC_GATEWAY_PORT=${NEXT_PUBLIC_GATEWAY_PORT}
@@ -57,6 +59,7 @@ FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a728
 
 ARG MC_VERSION=dev
 ARG VCS_REF=unknown
+ARG NEXT_PUBLIC_MC_BASE_PATH
 LABEL org.opencontainers.image.source="https://github.com/GabrielABSouza/mission-control-novo-ambiente"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.description="Mission Control - operations dashboard"
@@ -86,7 +89,7 @@ USER nextjs
 ENV PORT=3000
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
-ENV MC_BASE_PATH=/mission-control
+ENV MC_BASE_PATH=${NEXT_PUBLIC_MC_BASE_PATH}
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
