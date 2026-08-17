@@ -85,3 +85,12 @@ export interface AccessProjection {
   allowlist: Array<{ agentKey: string; activeCount: number; byKind: Array<{ kind: string; count: number }> }>
   generatedAt: string
 }
+
+export interface DashboardAccessDetail {
+  schemaVersion: 1
+  environment: Environment
+  dashboardKey: string
+  displayName: string
+  profiles: string[]
+  generatedAt: string
+}
