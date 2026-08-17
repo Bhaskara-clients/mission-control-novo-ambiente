@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { visibleSystems } from '../catalog-navigation'
+import { visibleNavigation, visibleSystems } from '../catalog-navigation'
 
 describe('Novo Ambiente catalog navigation', () => {
   it('keeps authorized absolute dashboard links and excludes the replaced legacy panel', () => {
@@ -27,6 +27,24 @@ describe('Novo Ambiente catalog navigation', () => {
         { key: 'script', label: 'Script', url: 'javascript:alert(1)' },
       ],
     })).toEqual([])
+  })
+
+  it('renders only curated authorized navigation groups', () => {
+    expect(visibleNavigation({
+      schemaVersion: 1,
+      sections: [{
+        key: 'operacao', label: 'Operação', destinations: [{
+          key: 'wms', label: 'WMS', description: 'Estoque e pedidos', url: 'https://staging.example/wms',
+          links: [
+            { key: 'wms', label: 'Consulta', url: 'https://staging.example/wms' },
+            { key: 'unsafe', label: 'Unsafe', url: 'javascript:alert(1)' },
+          ],
+        }],
+      }],
+    })).toEqual([{ key: 'operacao', label: 'Operação', destinations: [{
+      key: 'wms', label: 'WMS', description: 'Estoque e pedidos', url: 'https://staging.example/wms',
+      links: [{ key: 'wms', label: 'Consulta', url: 'https://staging.example/wms' }],
+    }] }])
   })
 
   it('keeps the global rail and does not expose the screen assistant as navigation', () => {

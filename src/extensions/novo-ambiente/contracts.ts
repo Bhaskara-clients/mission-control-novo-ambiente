@@ -11,6 +11,8 @@ export interface HealthLayer {
 export interface AgentSnapshot {
   schemaVersion: 1
   agentKey: string
+  displayName?: string
+  ownerTeam?: string
   environment: Environment
   overallStatus: Exclude<HealthStatus, 'not_applicable'>
   layers: HealthLayer[]
