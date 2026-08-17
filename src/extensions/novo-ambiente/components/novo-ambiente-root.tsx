@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { apiFetch } from '@/lib/api-client'
+import { applicationPath } from '@/lib/base-path'
 import type { CurrentUser } from '@/store'
 import { systemsHubUrl, visibleNavigation, visibleSystems, type DashboardCatalogItem, type DashboardCatalogSection } from '../catalog-navigation'
 import { MissionControlPanel, type NovoAmbienteView } from './mission-control-panel'
@@ -52,13 +53,13 @@ export function NovoAmbienteRoot() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <nav aria-label="Navegação principal" className="hidden w-[88px] shrink-0 flex-col border-r border-border bg-card md:flex">
-        <a href={hub || '/'} aria-label="Início" className="mx-auto mt-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/70 text-base font-bold text-white">
+        <a href={hub || applicationPath('/')} aria-label="Início" className="mx-auto mt-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/70 text-base font-bold text-white">
           NA
         </a>
         <div className="mt-8 flex flex-col gap-2 px-2">
           {hub && <RailLink href={hub} mark="⌂" label="Início" />}
           {wms && <RailLink href={wms} mark="W" label="WMS" />}
-          <RailLink href="/" mark="IA" label="Agentes" active />
+          <RailLink href={applicationPath('/')} mark="IA" label="Agentes" active />
           <button type="button" aria-expanded={systemsOpen} onClick={() => setSystemsOpen((open) => !open)} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
             <span className="text-lg" aria-hidden="true">▦</span>
             <span className="text-[11px]">Sistemas</span>
@@ -97,7 +98,7 @@ export function NovoAmbienteRoot() {
       <nav aria-label="Navegação móvel" className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t border-border bg-card md:hidden">
         {hub && <MobileLink href={hub} mark="⌂" label="Início" />}
         {wms && <MobileLink href={wms} mark="W" label="WMS" />}
-        <MobileLink href="/" mark="IA" label="Agentes" active />
+        <MobileLink href={applicationPath('/')} mark="IA" label="Agentes" active />
         <button type="button" aria-expanded={systemsOpen} onClick={() => setSystemsOpen((open) => !open)} className="flex h-full min-w-16 flex-col items-center justify-center text-muted-foreground"><span aria-hidden="true">▦</span><span className="text-[10px]">Sistemas</span></button>
       </nav>
     </div>

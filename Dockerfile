@@ -1,3 +1,5 @@
+ARG NEXT_PUBLIC_MC_BASE_PATH=/mission-control
+
 FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS base
 # Pin pnpm to v10 to match CI and package.json#packageManager. pnpm 11 turns
 # ERR_PNPM_IGNORED_BUILDS into a hard error, breaking fresh Docker builds.
@@ -19,6 +21,7 @@ RUN if [ -f pnpm-lock.yaml ]; then \
     fi
 
 FROM deps AS build
+ARG NEXT_PUBLIC_MC_BASE_PATH
 COPY . .
 
 # ─── PR-CANDIDATE: NEXT_PUBLIC_* baked into client bundle ──────────────────
@@ -47,6 +50,7 @@ ENV NEXT_PUBLIC_GATEWAY_OPTIONAL=${NEXT_PUBLIC_GATEWAY_OPTIONAL}
 ENV NEXT_PUBLIC_COORDINATOR_AGENT=${NEXT_PUBLIC_COORDINATOR_AGENT}
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
 ENV NEXT_PUBLIC_NOVO_AMBIENTE_MODE=${NEXT_PUBLIC_NOVO_AMBIENTE_MODE}
+ENV NEXT_PUBLIC_MC_BASE_PATH=${NEXT_PUBLIC_MC_BASE_PATH}
 # ────────────────────────────────────────────────────────────────────────────
 
 RUN pnpm build
@@ -55,6 +59,7 @@ FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a728
 
 ARG MC_VERSION=dev
 ARG VCS_REF=unknown
+ARG NEXT_PUBLIC_MC_BASE_PATH
 LABEL org.opencontainers.image.source="https://github.com/GabrielABSouza/mission-control-novo-ambiente"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.description="Mission Control - operations dashboard"
@@ -74,7 +79,7 @@ COPY --from=build /app/src/lib/schema.sql ./src/lib/schema.sql
 COPY --from=deps /app/node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty ./node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty
 # Create data directory with correct ownership for SQLite
 RUN mkdir -p .data && chown nextjs:nodejs .data
-RUN echo 'const http=require("http");const r=http.get("http://localhost:"+(process.env.PORT||3000)+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
+RUN echo 'const http=require("http");const p=process.env.MC_BASE_PATH||"/mission-control";const r=http.get("http://localhost:"+(process.env.PORT||3000)+p+"/api/status?action=health",s=>{process.exit(s.statusCode===200?0:1)});r.on("error",()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})' > /app/healthcheck.js
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY scripts/load-env.sh /app/scripts/load-env.sh
 RUN chmod 755 /app/docker-entrypoint.sh && \
@@ -84,6 +89,7 @@ USER nextjs
 ENV PORT=3000
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
+ENV MC_BASE_PATH=${NEXT_PUBLIC_MC_BASE_PATH}
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["node", "/app/healthcheck.js"]
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
