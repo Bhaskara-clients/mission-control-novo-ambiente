@@ -70,13 +70,21 @@ export interface InventorySnapshot {
   jobs: Array<{ key: string; enabled: boolean; lastStatus: string; lastRunAt: string | null }>
 }
 
-export interface UsageProjection {
+export interface UsageOverview {
   schemaVersion: 1
   environment: Environment
   status: 'available' | 'not_instrumented'
-  totals: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd: number | null; coveragePercent: number | null }
-  breakdown: Array<{ agentKey: string; provider: string; model: string; totalTokens: number; costUsd: number | null }>
+  totals: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd: number | null; coveragePercent: number | null; reportedEvents: number; totalEvents: number }
   generatedAt: string
+}
+
+export interface UsageDashboard {
+  schemaVersion: 1
+  environment: Environment
+  days: 7 | 30 | 90
+  overview: UsageOverview
+  breakdown: { dimension: 'agent'; items: Array<{ key: string; totalTokens: number; costUsd: number | null; coveragePercent: number | null }> }
+  timeseries: { interval: 'day'; items: Array<{ bucket: string; totalTokens: number; coveragePercent: number | null }> }
 }
 
 export interface AccessProjection {

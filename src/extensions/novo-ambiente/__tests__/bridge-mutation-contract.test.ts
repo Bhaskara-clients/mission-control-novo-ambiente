@@ -11,14 +11,14 @@ beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), 'mc-bridge-'))
   const keyFile = join(directory, 'reader.key')
   writeFileSync(keyFile, 'reader-secret')
-  process.env.MC_ADAPTER_READER_KEY_FILE = keyFile
-  process.env.MC_ADAPTER_URL = 'http://mission-control-adapter:8080'
+  process.env.MC_STAGING_ADAPTER_READER_KEY_FILE = keyFile
+  process.env.MC_STAGING_ADAPTER_URL = 'http://mission-control-adapter:8080'
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  delete process.env.MC_ADAPTER_READER_KEY_FILE
-  delete process.env.MC_ADAPTER_URL
+  delete process.env.MC_STAGING_ADAPTER_READER_KEY_FILE
+  delete process.env.MC_STAGING_ADAPTER_URL
   rmSync(directory, { recursive: true, force: true })
 })
 
@@ -45,7 +45,7 @@ describe('email bridge mutation contract', () => {
       created_at: 0,
       updated_at: 0,
       last_login_at: null,
-    }, '/internal/v1/incidents/incident-1/acknowledge', { method: 'POST' })
+    }, '/internal/v1/incidents/incident-1/acknowledge?environment=staging', { method: 'POST' })
 
     expect(fetchMock).toHaveBeenCalledOnce()
     expect(response.status).toBe(403)

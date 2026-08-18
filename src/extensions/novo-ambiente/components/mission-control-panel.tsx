@@ -4,14 +4,15 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { apiFetch, ApiError } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
-import type { AccessProjection, Connection, DashboardAccessDetail, Environment, Incident, InventorySnapshot, Overview, UsageProjection } from '../contracts'
+import type { AccessProjection, Connection, DashboardAccessDetail, Environment, Incident, InventorySnapshot, Overview, UsageDashboard } from '../contracts'
 import { hasLiveEvidence, healthDetail, layerLabel } from '../health-labels'
 import { StatusBadge } from './status-badge'
 
 export type NovoAmbienteView = 'fleet' | 'connections' | 'usage' | 'access'
 
-function endpoint(view: NovoAmbienteView, environment: Environment): string {
-  return `/api/extensions/novo-ambiente/${view === 'fleet' ? 'overview' : view}?environment=${environment}`
+function endpoint(view: NovoAmbienteView, environment: Environment, usageDays: number): string {
+  const path = `/api/extensions/novo-ambiente/${view === 'fleet' ? 'overview' : view}?environment=${environment}`
+  return view === 'usage' ? `${path}&days=${usageDays}` : path
 }
 
 function date(value: string | null): string {
@@ -30,7 +31,8 @@ function ErrorState({ message, retry }: { message: string; retry: () => void }) 
 
 export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
   const [environment, setEnvironment] = useState<Environment>('production')
-  const request = endpoint(view, environment)
+  const [usageDays, setUsageDays] = useState(30)
+  const request = endpoint(view, environment, usageDays)
   const [result, setResult] = useState<{ request: string; data?: unknown; error?: string } | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [inventory, setInventory] = useState<InventorySnapshot[]>([])
@@ -66,30 +68,37 @@ export function MissionControlPanel({ view }: { view: NovoAmbienteView }) {
           <h1 className="mt-2 text-2xl font-semibold text-foreground">{({ fleet: 'Frota', connections: 'Conexões', usage: 'Consumo', access: 'Acessos' } as const)[view]}</h1>
           <p className="mt-1 text-sm text-muted-foreground">Fonte canônica via adapter; o painel não acessa Docker, homes ou secrets.</p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm text-muted-foreground">
           Ambiente
           <select className="rounded-md border border-border bg-card px-3 py-2 text-foreground" value={environment} onChange={(event) => setEnvironment(event.target.value as Environment)}>
             <option value="staging">Staging</option>
             <option value="production">Produção</option>
           </select>
-        </label>
+        </label>{view === 'usage' && <label className="flex items-center gap-2 text-sm text-muted-foreground">Período<select aria-label="Período" className="rounded-md border border-border bg-card px-3 py-2 text-foreground" value={usageDays} onChange={(event) => setUsageDays(Number(event.target.value))}><option value={7}>7 dias</option><option value={30}>30 dias</option><option value={90}>90 dias</option></select></label>}</div>
       </header>
       {!ready && !error ? <div className="h-48 animate-pulse rounded-xl border border-border bg-card" /> : error ? <ErrorState message={error} retry={() => void load()} /> : null}
-      {ready && view === 'fleet' && <FleetView data={data as Overview} onSelect={setSelectedAgent} />}
+      {ready && view === 'fleet' && <FleetView data={data as Overview} environment={environment} onSelect={setSelectedAgent} />}
       {ready && view === 'connections' && <ConnectionsView data={data as Connection[]} />}
-      {ready && view === 'usage' && <UsageView data={data as UsageProjection} />}
+      {ready && view === 'usage' && <UsageView data={data as UsageDashboard} />}
       {ready && view === 'access' && <AccessView data={data as AccessProjection} environment={environment} />}
       {selectedAgent && <AgentDrawer agentKey={selectedAgent} inventory={inventory} close={() => setSelectedAgent(null)} />}
     </section>
   )
 }
 
-function FleetView({ data, onSelect }: { data: Overview; onSelect: (agentKey: string) => void }) {
+function FleetView({ data, environment, onSelect }: { data: Overview; environment: Environment; onSelect: (agentKey: string) => void }) {
   const [incidents, setIncidents] = useState(data.activeIncidents)
   const observedAgents = data.agents.filter((agent) => hasLiveEvidence(agent.layers)).length
   async function acknowledge(incident: Incident) {
-    const updated = await apiFetch<Incident>(`/api/extensions/novo-ambiente/incidents/${incident.id}/acknowledge`, { method: 'POST' })
+    const updated = await apiFetch<Incident>(`/api/extensions/novo-ambiente/incidents/${incident.id}/acknowledge?environment=${environment}`, { method: 'POST' })
     setIncidents((current) => current.map((item) => item.id === updated.id ? updated : item))
+  }
+  async function resolve(incident: Incident) {
+    const updated = await apiFetch<Incident>(`/api/extensions/novo-ambiente/incidents/${incident.id}/resolve?environment=${environment}`, {
+      method: 'POST',
+      body: JSON.stringify({ resolutionCode: 'recovered' }),
+    })
+    setIncidents((current) => current.filter((item) => item.id !== updated.id))
   }
   return (
     <>
@@ -106,7 +115,7 @@ function FleetView({ data, onSelect }: { data: Overview; onSelect: (agentKey: st
       {data.agents.length === 0 && <p className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">Nenhum agente habilitado neste ambiente.</p>}
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4"><h2 className="font-semibold">Incidentes ativos</h2></div>
-        <div className="divide-y divide-border">{incidents.map((incident) => <div key={incident.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="font-medium">{incident.title}</p><p className="text-xs text-muted-foreground">{incident.agentKey || 'Frota'} · {incident.severity} · {date(incident.openedAt)}</p></div>{incident.status === 'open' && <Button variant="outline" size="sm" onClick={() => void acknowledge(incident)}>Reconhecer</Button>}</div>)}{incidents.length === 0 && <p className="p-5 text-sm text-muted-foreground">Nenhum incidente ativo.</p>}</div>
+        <div className="divide-y divide-border">{incidents.map((incident) => <div key={incident.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="font-medium">{incident.title}</p><p className="text-xs text-muted-foreground">{incident.agentKey || 'Frota'} · {incident.severity} · {date(incident.openedAt)}</p></div>{incident.status === 'open' ? <Button variant="outline" size="sm" onClick={() => void acknowledge(incident)}>Reconhecer</Button> : incident.status === 'acknowledged' ? <Button variant="outline" size="sm" onClick={() => void resolve(incident)}>Resolver</Button> : null}</div>)}{incidents.length === 0 && <p className="p-5 text-sm text-muted-foreground">Nenhum incidente ativo.</p>}</div>
       </div>
     </>
   )
@@ -116,9 +125,10 @@ function ConnectionsView({ data }: { data: Connection[] }) {
   return <div className="overflow-x-auto rounded-xl border border-border bg-card"><table className="w-full min-w-[850px] text-sm"><thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-4">Agente</th><th>Conexão</th><th>Tipo</th><th>Autenticação</th><th>Disponibilidade</th><th>Último sucesso</th><th>Expira</th></tr></thead><tbody className="divide-y divide-border">{data.map((item) => <tr key={`${item.agentKey}:${item.connectionId}`}><td className="p-4 font-medium">{item.agentKey}</td><td>{item.provider}</td><td>{item.kind}</td><td>{item.authState}</td><td><StatusBadge status={item.availability} /></td><td>{date(item.lastSuccessAt)}</td><td>{date(item.expiresAt)}</td></tr>)}</tbody></table>{data.length === 0 && <p className="p-8 text-center text-muted-foreground">Nenhuma conexão reportada.</p>}</div>
 }
 
-function UsageView({ data }: { data: UsageProjection }) {
-  if (data.status === 'not_instrumented') return <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-6"><h2 className="font-semibold text-amber-300">Telemetria ainda não instrumentada</h2><p className="mt-1 text-sm text-muted-foreground">O Mission Control não usa o contador nativo do Builderz e não inventa custo zero.</p></div>
-  return <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Tokens" value={data.totals.totalTokens.toLocaleString('pt-BR')} /><Metric label="Entrada" value={data.totals.inputTokens.toLocaleString('pt-BR')} /><Metric label="Saída" value={data.totals.outputTokens.toLocaleString('pt-BR')} /><Metric label="Custo conhecido" value={data.totals.costUsd === null ? 'Desconhecido' : `US$ ${data.totals.costUsd.toFixed(2)}`} /></div><div className="rounded-xl border border-border bg-card p-5"><h2 className="font-semibold">Por agente e modelo</h2>{data.breakdown.map((item) => <div key={`${item.agentKey}:${item.provider}:${item.model}`} className="mt-3 grid grid-cols-4 gap-3 border-t border-border pt-3 text-sm"><span>{item.agentKey}</span><span>{item.provider}</span><span className="truncate" title={item.model}>{item.model}</span><span>{item.totalTokens.toLocaleString('pt-BR')}</span></div>)}</div></>
+function UsageView({ data }: { data: UsageDashboard }) {
+  const overview = data.overview
+  if (overview.status === 'not_instrumented') return <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-6"><h2 className="font-semibold text-amber-300">Telemetria ainda não instrumentada</h2><p className="mt-1 text-sm text-muted-foreground">{overview.totals.totalEvents} evento(s) esperado(s), cobertura {overview.totals.coveragePercent ?? 0}%. O painel não inventa custo ou tokens ausentes.</p></div>
+  return <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Tokens" value={overview.totals.totalTokens.toLocaleString('pt-BR')} /><Metric label="Cobertura" value={overview.totals.coveragePercent === null ? 'Desconhecida' : `${overview.totals.coveragePercent}%`} /><Metric label="Eventos reportados" value={`${overview.totals.reportedEvents}/${overview.totals.totalEvents}`} /><Metric label="Custo conhecido" value={overview.totals.costUsd === null ? 'Desconhecido' : `US$ ${overview.totals.costUsd.toFixed(2)}`} /></div><div className="grid gap-4 xl:grid-cols-2"><div className="rounded-xl border border-border bg-card p-5"><h2 className="font-semibold">Por agente</h2>{data.breakdown.items.map((item) => <div key={item.key} className="mt-3 grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm"><span>{item.key}</span><span>{item.totalTokens.toLocaleString('pt-BR')} tokens</span><span>{item.coveragePercent ?? 0}% cobertura</span></div>)}</div><div className="rounded-xl border border-border bg-card p-5"><h2 className="font-semibold">Série diária</h2>{data.timeseries.items.map((item) => <div key={item.bucket} className="mt-3 grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm"><span>{new Date(item.bucket).toLocaleDateString('pt-BR')}</span><span>{item.totalTokens.toLocaleString('pt-BR')}</span><span>{item.coveragePercent ?? 0}%</span></div>)}</div></div></>
 }
 
 function AccessView({ data, environment }: { data: AccessProjection; environment: Environment }) {
