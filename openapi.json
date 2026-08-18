@@ -11834,7 +11834,7 @@
           { "$ref": "#/components/parameters/NovoAmbienteAgentKey" }
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "200": { "$ref": "#/components/responses/NovoAmbienteArrayPayload" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -11894,11 +11894,11 @@
             "name": "status",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" }
+            "schema": { "type": "string", "enum": ["open", "acknowledged", "resolved"] }
           }
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "200": { "$ref": "#/components/responses/NovoAmbienteArrayPayload" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -11919,7 +11919,12 @@
           "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Incident is not open",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
@@ -11935,10 +11940,20 @@
           { "$ref": "#/components/parameters/NovoAmbienteEnvironment" }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
-              "schema": { "type": "object", "additionalProperties": true }
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["resolutionCode"],
+                "properties": {
+                  "resolutionCode": {
+                    "type": "string",
+                    "enum": ["recovered", "credential_rotated", "config_fixed", "false_positive"]
+                  }
+                }
+              }
             }
           }
         },
@@ -11946,7 +11961,12 @@
           "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Incident is not acknowledged",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
@@ -11963,7 +11983,7 @@
           { "$ref": "#/components/parameters/NovoAmbienteAgentKey" }
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "200": { "$ref": "#/components/responses/NovoAmbienteArrayPayload" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -12536,6 +12556,17 @@
             "schema": {
               "type": "object",
               "additionalProperties": true
+            }
+          }
+        }
+      },
+      "NovoAmbienteArrayPayload": {
+        "description": "List projected by the environment-specific Mission Control adapter",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
             }
           }
         }

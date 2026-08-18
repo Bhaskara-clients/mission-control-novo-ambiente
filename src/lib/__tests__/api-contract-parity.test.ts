@@ -98,3 +98,46 @@ describe('api-contract-parity helpers', () => {
     expect(report.ignoredOperations).toEqual(['PATCH /api/tasks/{id}'])
   })
 })
+
+describe('Novo Ambiente OpenAPI contracts', () => {
+  const openApi = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'openapi.json'), 'utf8')) as {
+    paths: Record<string, Record<string, {
+      responses: Record<string, { $ref?: string }>
+      requestBody?: {
+        required?: boolean
+        content: {
+          'application/json': {
+            schema: {
+              required?: string[]
+              properties?: { resolutionCode?: { enum?: string[] } }
+            }
+          }
+        }
+      }
+    }>>
+  }
+
+  it.each(['connections', 'incidents', 'inventory'])('%s documents its list response as an array', (route) => {
+    expect(openApi.paths[`/api/extensions/novo-ambiente/${route}`].get.responses['200'].$ref)
+      .toBe('#/components/responses/NovoAmbienteArrayPayload')
+  })
+
+  it('documents the incident transition contract', () => {
+    const acknowledge = openApi.paths['/api/extensions/novo-ambiente/incidents/{id}/acknowledge'].post
+    const resolve = openApi.paths['/api/extensions/novo-ambiente/incidents/{id}/resolve'].post
+    const resolveSchema = resolve.requestBody?.content['application/json'].schema
+
+    expect(acknowledge.responses).toHaveProperty('409')
+    expect(acknowledge.responses).not.toHaveProperty('404')
+    expect(resolve.responses).toHaveProperty('409')
+    expect(resolve.responses).not.toHaveProperty('404')
+    expect(resolve.requestBody?.required).toBe(true)
+    expect(resolveSchema?.required).toEqual(['resolutionCode'])
+    expect(resolveSchema?.properties?.resolutionCode?.enum).toEqual([
+      'recovered',
+      'credential_rotated',
+      'config_fixed',
+      'false_positive',
+    ])
+  })
+})
