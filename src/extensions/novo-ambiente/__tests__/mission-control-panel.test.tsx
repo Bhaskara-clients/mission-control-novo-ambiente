@@ -75,4 +75,30 @@ describe('MissionControlPanel', () => {
     expect(screen.getByText('user@novoambiente.com.br')).toBeTruthy()
     expect(apiFetch).toHaveBeenCalledWith('/api/extensions/novo-ambiente/access/wms?environment=production')
   })
+
+  it('renders canonical usage coverage, breakdown and timeseries and changes the window', async () => {
+    vi.mocked(apiFetch).mockResolvedValue({
+      schemaVersion: 1,
+      environment: 'production',
+      days: 30,
+      overview: {
+        schemaVersion: 1,
+        environment: 'production',
+        status: 'available',
+        totals: { inputTokens: 80, outputTokens: 20, totalTokens: 100, costUsd: null, coveragePercent: 75, reportedEvents: 3, totalEvents: 4 },
+        generatedAt: '2026-08-18T10:00:00.000Z',
+      },
+      breakdown: { dimension: 'agent', items: [{ key: 'comercial', totalTokens: 100, costUsd: null, coveragePercent: 75 }] },
+      timeseries: { interval: 'day', items: [{ bucket: '2026-08-18T00:00:00.000Z', totalTokens: 100, coveragePercent: 75 }] },
+    })
+
+    render(<MissionControlPanel view="usage" />)
+
+    expect((await screen.findAllByText('75%')).length).toBeGreaterThan(0)
+    expect(screen.getByText('3/4')).toBeTruthy()
+    expect(screen.getByText('Por agente')).toBeTruthy()
+    expect(screen.getByText('Série diária')).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Período' }), { target: { value: '7' } })
+    expect(apiFetch).toHaveBeenCalledWith('/api/extensions/novo-ambiente/usage?environment=production&days=7')
+  })
 })

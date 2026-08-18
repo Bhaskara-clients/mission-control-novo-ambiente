@@ -60,7 +60,7 @@ FROM node:24.18.0-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a728
 ARG MC_VERSION=dev
 ARG VCS_REF=unknown
 ARG NEXT_PUBLIC_MC_BASE_PATH
-LABEL org.opencontainers.image.source="https://github.com/GabrielABSouza/mission-control-novo-ambiente"
+LABEL org.opencontainers.image.source="https://github.com/Bhaskara-clients/MarombaMoveis"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.description="Mission Control - operations dashboard"
 LABEL org.opencontainers.image.licenses="MIT"
