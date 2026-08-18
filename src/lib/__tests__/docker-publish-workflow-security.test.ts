@@ -9,6 +9,9 @@ describe('Docker publication workflow contracts', () => {
   )
 
   it('publishes only direct protected refs and isolates their concurrency', () => {
+    expect(source).toMatch(
+      /push:\n {4}branches:\n {6}- main\n {6}- novo-ambiente-v2\.3\.0/,
+    )
     expect(source).toContain('group: docker-publish-${{ github.ref }}')
     expect(source).toContain('cancel-in-progress: true')
     expect(source).not.toContain('cancel-in-progress: false')

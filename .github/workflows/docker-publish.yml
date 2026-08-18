@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - novo-ambiente-v2.3.0
     tags:
       - 'v*.*.*'
   workflow_dispatch:
