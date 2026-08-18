@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - novo-ambiente-v2.3.0
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -22,6 +23,7 @@ env:
 
 jobs:
   publish:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/novo-ambiente-v2.3.0'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,6 +68,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push image
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -78,3 +81,11 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
+
+      - name: Record immutable published digest
+        env:
+          PUBLISHED_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          [[ "$PUBLISHED_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "published_digest=$PUBLISHED_DIGEST"
+          echo "revision=$GITHUB_SHA"
