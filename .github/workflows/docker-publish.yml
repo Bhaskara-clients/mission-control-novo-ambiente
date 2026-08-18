@@ -23,6 +23,7 @@ env:
 
 jobs:
   publish:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/novo-ambiente-v2.3.0'
     runs-on: ubuntu-latest
     permissions:
       contents: read

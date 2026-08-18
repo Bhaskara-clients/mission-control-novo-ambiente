@@ -44,7 +44,7 @@ describe('workflow token permission boundaries', () => {
 
   it('grants package publication only to the Docker publish job', () => {
     expect(readWorkflow('docker-publish.yml')).toMatch(
-      /publish:\n {4}runs-on: ubuntu-latest\n {4}permissions:\n {6}contents: read\n {6}packages: write/,
+      /publish:\n(?: {4}if: .+\n)? {4}runs-on: ubuntu-latest\n {4}permissions:\n {6}contents: read\n {6}packages: write/,
     )
   })
 

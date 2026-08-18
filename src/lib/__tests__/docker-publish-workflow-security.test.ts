@@ -17,5 +17,8 @@ describe('Docker publication workflow contracts', () => {
     expect(source).not.toContain('cancel-in-progress: false')
     expect(source).not.toContain('workflow_run:')
     expect(source).not.toContain('github.event.workflow_run')
+    expect(source).toContain(
+      "if: github.event_name == 'push' || github.ref == 'refs/heads/novo-ambiente-v2.3.0'",
+    )
   })
 })
