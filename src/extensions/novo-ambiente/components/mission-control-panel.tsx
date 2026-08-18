@@ -93,6 +93,13 @@ function FleetView({ data, environment, onSelect }: { data: Overview; environmen
     const updated = await apiFetch<Incident>(`/api/extensions/novo-ambiente/incidents/${incident.id}/acknowledge?environment=${environment}`, { method: 'POST' })
     setIncidents((current) => current.map((item) => item.id === updated.id ? updated : item))
   }
+  async function resolve(incident: Incident) {
+    const updated = await apiFetch<Incident>(`/api/extensions/novo-ambiente/incidents/${incident.id}/resolve?environment=${environment}`, {
+      method: 'POST',
+      body: JSON.stringify({ resolutionCode: 'recovered' }),
+    })
+    setIncidents((current) => current.filter((item) => item.id !== updated.id))
+  }
   return (
     <>
       {data.agents.length > 0 && observedAgents === 0 && <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-5"><h2 className="font-medium text-amber-300">Monitoramento ainda não ativado neste ambiente</h2><p className="mt-1 text-sm text-muted-foreground">Os agentes foram cadastrados, mas o Mission Control ainda não recebeu nenhum sinal operacional.</p></div>}
@@ -108,7 +115,7 @@ function FleetView({ data, environment, onSelect }: { data: Overview; environmen
       {data.agents.length === 0 && <p className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">Nenhum agente habilitado neste ambiente.</p>}
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4"><h2 className="font-semibold">Incidentes ativos</h2></div>
-        <div className="divide-y divide-border">{incidents.map((incident) => <div key={incident.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="font-medium">{incident.title}</p><p className="text-xs text-muted-foreground">{incident.agentKey || 'Frota'} · {incident.severity} · {date(incident.openedAt)}</p></div>{incident.status === 'open' && <Button variant="outline" size="sm" onClick={() => void acknowledge(incident)}>Reconhecer</Button>}</div>)}{incidents.length === 0 && <p className="p-5 text-sm text-muted-foreground">Nenhum incidente ativo.</p>}</div>
+        <div className="divide-y divide-border">{incidents.map((incident) => <div key={incident.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="font-medium">{incident.title}</p><p className="text-xs text-muted-foreground">{incident.agentKey || 'Frota'} · {incident.severity} · {date(incident.openedAt)}</p></div>{incident.status === 'open' ? <Button variant="outline" size="sm" onClick={() => void acknowledge(incident)}>Reconhecer</Button> : incident.status === 'acknowledged' ? <Button variant="outline" size="sm" onClick={() => void resolve(incident)}>Resolver</Button> : null}</div>)}{incidents.length === 0 && <p className="p-5 text-sm text-muted-foreground">Nenhum incidente ativo.</p>}</div>
       </div>
     </>
   )

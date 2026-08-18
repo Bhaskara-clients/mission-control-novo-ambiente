@@ -101,4 +101,35 @@ describe('MissionControlPanel', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Período' }), { target: { value: '7' } })
     expect(apiFetch).toHaveBeenCalledWith('/api/extensions/novo-ambiente/usage?environment=production&days=7')
   })
+
+  it('routes incident resolution through the environment currently selected in the UI', async () => {
+    const acknowledged = {
+      id: 'incident-production-1',
+      environment: 'production',
+      agentKey: 'comercial',
+      title: 'Canal indisponível',
+      severity: 'high',
+      status: 'acknowledged',
+      openedAt: '2026-08-18T10:00:00.000Z',
+      acknowledgedAt: '2026-08-18T10:01:00.000Z',
+      resolvedAt: null,
+    }
+    vi.mocked(apiFetch).mockImplementation((url) => {
+      if (String(url).includes('/overview?environment=production')) {
+        return Promise.resolve({ ...overview, activeIncidents: [acknowledged] })
+      }
+      if (String(url).includes('/resolve?environment=production')) {
+        return Promise.resolve({ ...acknowledged, status: 'resolved', resolvedAt: '2026-08-18T10:02:00.000Z' })
+      }
+      return Promise.resolve([])
+    })
+
+    render(<MissionControlPanel view="fleet" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Resolver' }))
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/api/extensions/novo-ambiente/incidents/incident-production-1/resolve?environment=production',
+      { method: 'POST', body: JSON.stringify({ resolutionCode: 'recovered' }) },
+    )
+  })
 })
