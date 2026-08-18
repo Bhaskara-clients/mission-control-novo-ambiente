@@ -93,6 +93,10 @@
       "description": "Release and version checking"
     },
     {
+      "name": "Novo Ambiente",
+      "description": "Novo Ambiente fleet, usage, access, inventory, and incident projections"
+    },
+    {
       "name": "Docs",
       "description": "API documentation"
     }
@@ -11756,6 +11760,278 @@
         }
       }
     },
+    "/api/extensions/novo-ambiente/access": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "List projected dashboard access",
+        "operationId": "listNovoAmbienteAccess",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/NovoAmbienteEnvironment" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/access/{dashboardKey}": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Get projected access for a dashboard",
+        "operationId": "getNovoAmbienteDashboardAccess",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "dashboardKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1 }
+          },
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/agents/{agentKey}": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Get an agent projection",
+        "operationId": "getNovoAmbienteAgent",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "agentKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "minLength": 1 }
+          },
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/connections": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "List connection health projections",
+        "operationId": "listNovoAmbienteConnections",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" },
+          { "$ref": "#/components/parameters/NovoAmbienteAgentKey" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbienteArrayPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/events": {
+      "post": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Accept a publisher event",
+        "operationId": "publishNovoAmbienteEvent",
+        "security": [{ "publisherBearer": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": ["schemaVersion", "eventId", "eventType"],
+                "properties": {
+                  "schemaVersion": { "type": "integer", "const": 1 },
+                  "eventId": { "type": "string", "minLength": 1 },
+                  "eventType": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Event accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["accepted"],
+                  "properties": { "accepted": { "type": "boolean", "const": true } }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/incidents": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "List fleet incidents",
+        "operationId": "listNovoAmbienteIncidents",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["open", "acknowledged", "resolved"] }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbienteArrayPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/incidents/{id}/acknowledge": {
+      "post": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Acknowledge an incident",
+        "operationId": "acknowledgeNovoAmbienteIncident",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteIncidentId" },
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": {
+            "description": "Incident is not open",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/incidents/{id}/resolve": {
+      "post": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Resolve an incident",
+        "operationId": "resolveNovoAmbienteIncident",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteIncidentId" },
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["resolutionCode"],
+                "properties": {
+                  "resolutionCode": {
+                    "type": "string",
+                    "enum": ["recovered", "credential_rotated", "config_fixed", "false_positive"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": {
+            "description": "Incident is not acknowledged",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/inventory": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "List sanitized runtime inventory",
+        "operationId": "listNovoAmbienteInventory",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" },
+          { "$ref": "#/components/parameters/NovoAmbienteAgentKey" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbienteArrayPayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/overview": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Get fleet overview",
+        "operationId": "getNovoAmbienteOverview",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" },
+          { "$ref": "#/components/parameters/NovoAmbienteAgentKey" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/extensions/novo-ambiente/usage": {
+      "get": {
+        "tags": ["Novo Ambiente"],
+        "summary": "Get usage overview, breakdown, and timeseries",
+        "operationId": "getNovoAmbienteUsage",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/NovoAmbienteEnvironment" },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "enum": [7, 30, 90], "default": 30 }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/NovoAmbientePayload" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
     "/api/releases/update": {
       "post": {
         "tags": ["Releases"],
@@ -11817,6 +12093,35 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-api-key"
+      },
+      "publisherBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Publisher credential scoped to Novo Ambiente event ingestion"
+      }
+    },
+    "parameters": {
+      "NovoAmbienteEnvironment": {
+        "name": "environment",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": ["staging", "production"],
+          "default": "staging"
+        }
+      },
+      "NovoAmbienteAgentKey": {
+        "name": "agentKey",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "minLength": 1 }
+      },
+      "NovoAmbienteIncidentId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "minLength": 1 }
       }
     },
     "schemas": {
@@ -12220,6 +12525,48 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "Request contract validation failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Mission Control adapter unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NovoAmbientePayload": {
+        "description": "Response projected by the environment-specific Mission Control adapter",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "NovoAmbienteArrayPayload": {
+        "description": "List projected by the environment-specific Mission Control adapter",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
             }
           }
         }
