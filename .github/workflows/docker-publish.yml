@@ -6,16 +6,20 @@ on:
       - main
       - novo-ambiente-v2.3.0
     paths:
+      - '.dockerignore'
       - '.nvmrc'
+      - '.npmrc'
       - 'Dockerfile'
       - 'docker-entrypoint.sh'
       - 'messages/**'
       - 'next.config.js'
+      - 'next-env.d.ts'
       - 'openapi.json'
+      - 'ops/templates/openclaw-gateway@.service'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-      - 'postcss.config.mjs'
+      - 'postcss.config.js'
       - 'public/**'
       - 'scripts/check-node-version.mjs'
       - 'scripts/load-env.sh'
