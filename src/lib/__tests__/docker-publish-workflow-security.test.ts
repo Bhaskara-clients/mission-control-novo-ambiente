@@ -20,5 +20,7 @@ describe('Docker publication workflow contracts', () => {
     expect(source).toContain(
       "if: github.event_name == 'push' || github.ref == 'refs/heads/novo-ambiente-v2.3.0'",
     )
+    expect(source).toContain('PUBLISHED_DIGEST: ${{ steps.build.outputs.digest }}')
+    expect(source).toContain('[[ "$PUBLISHED_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]')
   })
 })
