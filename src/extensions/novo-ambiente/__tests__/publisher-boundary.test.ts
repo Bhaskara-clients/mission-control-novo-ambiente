@@ -12,11 +12,13 @@ let directory: string
 beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), 'mc-publisher-'))
   process.env.MC_NOVO_AMBIENTE_LOCKDOWN = '1'
+  process.env.MC_BASE_PATH = '/mission-control'
 })
 
 afterEach(() => {
   delete process.env.MC_ADAPTER_PUBLISHER_KEY_FILE
   delete process.env.MC_NOVO_AMBIENTE_LOCKDOWN
+  delete process.env.MC_BASE_PATH
   rmSync(directory, { recursive: true, force: true })
 })
 
@@ -26,9 +28,10 @@ function request(path: string, method = 'GET') {
 
 describe('adapter publisher boundary', () => {
   it('exempts only the exact publisher POST from session authentication', () => {
-    expect(proxy(request('/api/extensions/novo-ambiente/events', 'POST')).headers.get('x-middleware-next')).toBe('1')
-    expect(proxy(request('/api/extensions/novo-ambiente/events')).status).toBe(401)
-    expect(proxy(request('/api/extensions/novo-ambiente/events/neighbor', 'POST')).status).toBe(401)
+    expect(proxy(request('/mission-control/api/extensions/novo-ambiente/events', 'POST')).headers.get('x-middleware-next')).toBe('1')
+    expect(proxy(request('/mission-control/api/extensions/novo-ambiente/events')).status).toBe(401)
+    expect(proxy(request('/mission-control/api/extensions/novo-ambiente/events/neighbor', 'POST')).status).toBe(401)
+    expect(proxy(request('/api/extensions/novo-ambiente/events', 'POST')).status).toBe(401)
   })
 
   it('rejects missing and incorrect publisher credentials', async () => {
