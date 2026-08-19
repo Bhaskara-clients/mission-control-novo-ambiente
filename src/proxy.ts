@@ -229,7 +229,9 @@ export function proxy(request: NextRequest) {
   const isPublicHealthProbe = pathname === '/api/status' && request.nextUrl.searchParams.get('action') === 'health'
   // Exact-match only (no prefix/wildcard) so this exempts just the two health routes.
   const isPublicHealthRoute = pathname === '/api/health' || pathname === '/health'
-  const isAdapterPublisherRoute = method === 'POST' && pathname === '/api/extensions/novo-ambiente/events'
+  const basePath = String(process.env.MC_BASE_PATH || '').replace(/\/+$/, '')
+  const publisherPath = `${basePath}/api/extensions/novo-ambiente/events`
+  const isAdapterPublisherRoute = method === 'POST' && pathname === publisherPath
   const inheritedPublicRoute = pathname === '/login' || pathname === '/setup' || pathname.startsWith('/api/auth/') || pathname === '/api/setup' || pathname === '/api/docs' || pathname === '/docs'
   if ((!novoAmbienteLockdown && inheritedPublicRoute) || isPublicHealthProbe || isPublicHealthRoute) {
     const { response, nonce } = nextResponseWithNonce(request)
