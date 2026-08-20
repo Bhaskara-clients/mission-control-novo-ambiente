@@ -47,14 +47,14 @@ describe('Novo Ambiente catalog navigation', () => {
     }] }])
   })
 
-  it('keeps the global rail and does not expose the screen assistant as navigation', () => {
+  it('delegates global navigation to the canonical portal shell', () => {
     const source = readFileSync(
       join(process.cwd(), 'src/extensions/novo-ambiente/components/novo-ambiente-root.tsx'),
       'utf8',
     )
-    expect(source).toContain('aria-label="Navegação principal"')
-    expect(source).toContain('w-[88px]')
-    expect(source).toContain('Sistemas')
+    expect(source).toContain('src="/painel/static/portal-shell.js"')
+    expect(source).not.toContain('aria-label="Navegação principal"')
+    expect(source).not.toContain('Sistemas')
     expect(source).not.toContain('Assistente')
   })
 })
